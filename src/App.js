@@ -21,7 +21,8 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [itemType, setItemType] = useState('libro');
+  const [itemType, setItemType] = useState('película');
+  const [posterSize, setPosterSize] = useState(200);
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -44,7 +45,6 @@ function App() {
   });
   const [searching, setSearching] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('todos');
-  const [yearFilter, setYearFilter] = useState('todos');
   const searchInputRef = useRef(null);
 
   const fetchItems = async () => {
@@ -79,7 +79,7 @@ function App() {
 
   useEffect(() => {
     filterItems();
-  }, [items, searchQuery, categoryFilter, yearFilter, itemType]);
+  }, [items, searchQuery, categoryFilter, itemType]);
 
   const filterItems = () => {
     let filtered = itemType === 'todos' ? items : items.filter(i => i.type === itemType);
@@ -89,6 +89,7 @@ function App() {
       filtered = filtered.filter(item =>
         item.title?.toLowerCase().includes(query) ||
         item.author?.toLowerCase().includes(query) ||
+        item.director?.toLowerCase().includes(query) ||
         item.isbn?.includes(query) ||
         item.category?.toLowerCase().includes(query)
       );
@@ -96,10 +97,6 @@ function App() {
 
     if (categoryFilter !== 'todos') {
       filtered = filtered.filter(item => item.category === categoryFilter);
-    }
-
-    if (yearFilter !== 'todos') {
-      filtered = filtered.filter(item => item.year === parseInt(yearFilter));
     }
 
     setFilteredItems(filtered);
@@ -147,22 +144,50 @@ function App() {
     return null;
   };
 
+  const getTmdbMovieDetails = async (movieId) => {
+    try {
+      const { data } = await axios.get(
+        `https://api.themoviedb.org/3/movie/${movieId}?api_key=${tmdbApiKey}&language=es-MX`
+      );
+      
+      const credits = await axios.get(
+        `https://api.themoviedb.org/3/movie/${movieId}/credits?api_key=${tmdbApiKey}`
+      );
+
+      const director = credits.data.crew?.find(c => c.job === 'Director')?.name || '';
+      const actors = credits.data.cast?.slice(0, 5).map(a => a.name).join(', ') || '';
+
+      return {
+        title: data.title || '',
+        year: data.release_date?.slice(0, 4) || '',
+        cover_url: data.poster_path ? `https://image.tmdb.org/t/p/w300${data.poster_path}` : '',
+        synopsis: data.overview || '',
+        rating: data.vote_average?.toFixed(1) || '',
+        category: data.genres?.map(g => g.name).join(', ') || '',
+        director: director,
+        actors: actors,
+        duration: data.runtime?.toString() || ''
+      };
+    } catch (error) {
+      console.error('TMDb details error:', error);
+      return null;
+    }
+  };
+
   const searchMovieTmdb = async (title) => {
     try {
-      const { data } = await axios.get(`https://api.themoviedb.org/3/search/movie?api_key=${tmdbApiKey}&query=${title}`);
+      const { data } = await axios.get(
+        `https://api.themoviedb.org/3/search/movie?api_key=${tmdbApiKey}&query=${title}&language=es-MX`
+      );
+      
       if (data.results && data.results.length > 0) {
         const movie = data.results[0];
-        return {
-          title: movie.title || '',
-          year: movie.release_date?.slice(0, 4) || '',
-          cover_url: movie.poster_path ? `https://image.tmdb.org/t/p/w300${movie.poster_path}` : '',
-          synopsis: movie.overview || '',
-          rating: movie.vote_average?.toFixed(1) || '',
-          category: movie.genres?.map(g => g.name).join(', ') || ''
-        };
+        // Obtener detalles completos
+        const fullDetails = await getTmdbMovieDetails(movie.id);
+        return fullDetails;
       }
     } catch (error) {
-      console.error('TMDb error:', error);
+      console.error('TMDb search error:', error);
     }
     return null;
   };
@@ -304,7 +329,8 @@ function App() {
       'ISBN': item.isbn || '',
       'Editorial': item.publisher || '',
       'Páginas': item.pages || '',
-      'Género': item.genre || '',
+      'Actores': item.actors || '',
+      'Duración': item.duration || '',
       'Rating': item.rating || '',
       'Notas': item.notes
     }));
@@ -318,11 +344,6 @@ function App() {
   const getCategories = () => {
     const categories = new Set(items.filter(i => i.category).map(i => i.category));
     return Array.from(categories).sort();
-  };
-
-  const getYears = () => {
-    const years = new Set(items.filter(i => i.year).map(i => i.year));
-    return Array.from(years).sort((a, b) => b - a);
   };
 
   if (!user) {
@@ -384,6 +405,17 @@ function App() {
         </div>
       </header>
 
+      <div className="search-bar-container">
+        <input
+          ref={searchInputRef}
+          type="text"
+          placeholder="🔍 Busca por título, autor, director, ISBN, categoría..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="search-bar"
+        />
+      </div>
+
       <div className="main-layout">
         <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
           <div className="sidebar-content">
@@ -421,19 +453,6 @@ function App() {
               </select>
             </div>
 
-            <div className="filter-section">
-              <label>Años</label>
-              <select
-                value={yearFilter}
-                onChange={(e) => setYearFilter(e.target.value)}
-              >
-                <option value="todos">Todos</option>
-                {getYears().map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-
             <div className="stats">
               <p>Total: <strong>{items.length}</strong></p>
               <p>Libros: <strong>{items.filter(i => i.type === 'libro').length}</strong></p>
@@ -443,61 +462,62 @@ function App() {
         </aside>
 
         <main className="content">
-          <div className="search-bar-container">
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="🔍 Busca por título, autor, ISBN, categoría..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-bar"
-            />
-            <span className="result-count">{filteredItems.length} resultados</span>
+          <div className="toolbar">
+            <div className="toolbar-left">
+              <span className="result-count">{filteredItems.length} items</span>
+            </div>
+            <div className="toolbar-right">
+              <label className="size-label">Tamaño:</label>
+              <input
+                type="range"
+                min="120"
+                max="300"
+                value={posterSize}
+                onChange={(e) => setPosterSize(parseInt(e.target.value))}
+                className="size-slider"
+              />
+              <span className="size-value">{posterSize}px</span>
+            </div>
           </div>
 
-          <div className="results-section">
-            <h2>Resultados ({filteredItems.length})</h2>
-            
-            {filteredItems.length > 0 ? (
-              <div className="results-list">
-                {filteredItems.map(item => (
+          <div className="gallery-section">
+            <div className="gallery-grid" style={{ '--poster-size': `${posterSize}px` }}>
+              {filteredItems.length > 0 ? (
+                filteredItems.map(item => (
                   <div
                     key={item.id}
-                    className="result-card"
+                    className="gallery-item"
                     onClick={() => setSelectedItem(item)}
                   >
-                    <div className="result-cover">
+                    <div className="poster">
                       {item.cover_url ? (
                         <img src={item.cover_url} alt={item.title} />
                       ) : (
-                        <div className="no-cover">
+                        <div className="no-poster">
                           {item.type === 'libro' ? '📚' : '🎬'}
                         </div>
                       )}
+                      <div className="poster-overlay">
+                        <button
+                          className="delete-poster"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteItem(item.id);
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
-                    <div className="result-info">
-                      <h3>{item.title}</h3>
-                      <p className="author">{item.author || item.director || 'Sin autor'}</p>
-                      <p className="meta">{item.year} • {item.category}</p>
-                      <p className="condition">{item.condition}</p>
-                    </div>
-                    <button
-                      className="delete-small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteItem(item.id);
-                      }}
-                    >
-                      🗑️
-                    </button>
+                    <div className="poster-title">{item.title}</div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state">
-                No hay items con estos criterios. Haz clic en + para agregar uno.
-              </div>
-            )}
+                ))
+              ) : (
+                <div className="empty-state">
+                  No hay items con estos criterios. Haz clic en + para agregar uno.
+                </div>
+              )}
+            </div>
           </div>
         </main>
 
