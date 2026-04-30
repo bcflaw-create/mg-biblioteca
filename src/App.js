@@ -20,6 +20,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [itemType, setItemType] = useState('libro');
   const [formData, setFormData] = useState({
     title: '',
@@ -275,8 +276,8 @@ function App() {
         publisher: '', pages: '', genre: '', director: '', actors: '',
         duration: '', rating: '', synopsis: ''
       });
+      setShowAddForm(false);
       fetchItems();
-      searchInputRef.current?.focus();
     }
   };
 
@@ -284,7 +285,10 @@ function App() {
     if (window.confirm('¿Eliminar este item?')) {
       const { error } = await supabase.from('items').delete().eq('id', id);
       if (error) alert('Error: ' + error.message);
-      else fetchItems();
+      else {
+        fetchItems();
+        setSelectedItem(null);
+      }
     }
   };
 
@@ -372,6 +376,9 @@ function App() {
         </button>
         <h1 className="logo">MG</h1>
         <div className="header-actions">
+          <button onClick={() => setShowAddForm(true)} className="add-btn" title="Agregar nuevo item">
+            +
+          </button>
           <button onClick={exportToExcel} className="export-btn">📊</button>
           <button onClick={handleLogout} className="logout-btn">Salir</button>
         </div>
@@ -448,7 +455,116 @@ function App() {
             <span className="result-count">{filteredItems.length} resultados</span>
           </div>
 
-          <div className="add-item-panel">
+          <div className="results-section">
+            <h2>Resultados ({filteredItems.length})</h2>
+            
+            {filteredItems.length > 0 ? (
+              <div className="results-list">
+                {filteredItems.map(item => (
+                  <div
+                    key={item.id}
+                    className="result-card"
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <div className="result-cover">
+                      {item.cover_url ? (
+                        <img src={item.cover_url} alt={item.title} />
+                      ) : (
+                        <div className="no-cover">
+                          {item.type === 'libro' ? '📚' : '🎬'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="result-info">
+                      <h3>{item.title}</h3>
+                      <p className="author">{item.author || item.director || 'Sin autor'}</p>
+                      <p className="meta">{item.year} • {item.category}</p>
+                      <p className="condition">{item.condition}</p>
+                    </div>
+                    <button
+                      className="delete-small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteItem(item.id);
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                No hay items con estos criterios. Haz clic en + para agregar uno.
+              </div>
+            )}
+          </div>
+        </main>
+
+        {selectedItem && (
+          <div className="detail-panel">
+            <button className="close-detail" onClick={() => setSelectedItem(null)}>×</button>
+            
+            <div className="detail-content">
+              {selectedItem.cover_url && (
+                <img src={selectedItem.cover_url} alt={selectedItem.title} className="detail-cover" />
+              )}
+              
+              <h2>{selectedItem.title}</h2>
+              
+              {selectedItem.type === 'libro' ? (
+                <>
+                  {selectedItem.author && <p><strong>Autor:</strong> {selectedItem.author}</p>}
+                  {selectedItem.publisher && <p><strong>Editorial:</strong> {selectedItem.publisher}</p>}
+                  {selectedItem.isbn && <p><strong>ISBN:</strong> {selectedItem.isbn}</p>}
+                  {selectedItem.pages && <p><strong>Páginas:</strong> {selectedItem.pages}</p>}
+                </>
+              ) : (
+                <>
+                  {selectedItem.director && <p><strong>Director:</strong> {selectedItem.director}</p>}
+                  {selectedItem.actors && <p><strong>Actores:</strong> {selectedItem.actors}</p>}
+                  {selectedItem.duration && <p><strong>Duración:</strong> {selectedItem.duration} min</p>}
+                  {selectedItem.rating && <p><strong>Rating:</strong> {selectedItem.rating}/10 ⭐</p>}
+                </>
+              )}
+
+              {selectedItem.year && <p><strong>Año:</strong> {selectedItem.year}</p>}
+              {selectedItem.category && <p><strong>Categoría:</strong> {selectedItem.category}</p>}
+              {selectedItem.location && <p><strong>Ubicación:</strong> {selectedItem.location}</p>}
+              {selectedItem.condition && <p><strong>Condición:</strong> {selectedItem.condition}</p>}
+              
+              {selectedItem.synopsis && (
+                <>
+                  <h4>Descripción</h4>
+                  <p>{selectedItem.synopsis}</p>
+                </>
+              )}
+
+              {selectedItem.notes && (
+                <>
+                  <h4>Notas</h4>
+                  <p>{selectedItem.notes}</p>
+                </>
+              )}
+
+              <button
+                className="delete-btn-detail"
+                onClick={() => {
+                  deleteItem(selectedItem.id);
+                }}
+              >
+                🗑️ Eliminar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showAddForm && (
+        <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowAddForm(false)}>×</button>
+            
             <h2>Agregar nuevo item</h2>
             
             <div className="type-selector">
@@ -645,112 +761,8 @@ function App() {
               <button type="submit" className="save-btn">Guardar Item</button>
             </form>
           </div>
-
-          <div className="results-section">
-            <h2>Resultados ({filteredItems.length})</h2>
-            
-            {filteredItems.length > 0 ? (
-              <div className="results-list">
-                {filteredItems.map(item => (
-                  <div
-                    key={item.id}
-                    className="result-card"
-                    onClick={() => setSelectedItem(item)}
-                  >
-                    <div className="result-cover">
-                      {item.cover_url ? (
-                        <img src={item.cover_url} alt={item.title} />
-                      ) : (
-                        <div className="no-cover">
-                          {item.type === 'libro' ? '📚' : '🎬'}
-                        </div>
-                      )}
-                    </div>
-                    <div className="result-info">
-                      <h3>{item.title}</h3>
-                      <p className="author">{item.author || item.director || 'Sin autor'}</p>
-                      <p className="meta">{item.year} • {item.category}</p>
-                      <p className="condition">{item.condition}</p>
-                    </div>
-                    <button
-                      className="delete-small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteItem(item.id);
-                      }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state">
-                No hay items con estos criterios.
-              </div>
-            )}
-          </div>
-        </main>
-
-        {selectedItem && (
-          <div className="detail-panel">
-            <button className="close-detail" onClick={() => setSelectedItem(null)}>×</button>
-            
-            <div className="detail-content">
-              {selectedItem.cover_url && (
-                <img src={selectedItem.cover_url} alt={selectedItem.title} className="detail-cover" />
-              )}
-              
-              <h2>{selectedItem.title}</h2>
-              
-              {selectedItem.type === 'libro' ? (
-                <>
-                  {selectedItem.author && <p><strong>Autor:</strong> {selectedItem.author}</p>}
-                  {selectedItem.publisher && <p><strong>Editorial:</strong> {selectedItem.publisher}</p>}
-                  {selectedItem.isbn && <p><strong>ISBN:</strong> {selectedItem.isbn}</p>}
-                  {selectedItem.pages && <p><strong>Páginas:</strong> {selectedItem.pages}</p>}
-                </>
-              ) : (
-                <>
-                  {selectedItem.director && <p><strong>Director:</strong> {selectedItem.director}</p>}
-                  {selectedItem.actors && <p><strong>Actores:</strong> {selectedItem.actors}</p>}
-                  {selectedItem.duration && <p><strong>Duración:</strong> {selectedItem.duration} min</p>}
-                  {selectedItem.rating && <p><strong>Rating:</strong> {selectedItem.rating}/10 ⭐</p>}
-                </>
-              )}
-
-              {selectedItem.year && <p><strong>Año:</strong> {selectedItem.year}</p>}
-              {selectedItem.category && <p><strong>Categoría:</strong> {selectedItem.category}</p>}
-              {selectedItem.location && <p><strong>Ubicación:</strong> {selectedItem.location}</p>}
-              {selectedItem.condition && <p><strong>Condición:</strong> {selectedItem.condition}</p>}
-              
-              {selectedItem.synopsis && (
-                <>
-                  <h4>Descripción</h4>
-                  <p>{selectedItem.synopsis}</p>
-                </>
-              )}
-
-              {selectedItem.notes && (
-                <>
-                  <h4>Notas</h4>
-                  <p>{selectedItem.notes}</p>
-                </>
-              )}
-
-              <button
-                className="delete-btn-detail"
-                onClick={() => {
-                  deleteItem(selectedItem.id);
-                  setSelectedItem(null);
-                }}
-              >
-                🗑️ Eliminar
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
