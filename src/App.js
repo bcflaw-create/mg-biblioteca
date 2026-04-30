@@ -32,26 +32,6 @@ function App() {
   const [filter, setFilter] = useState('todos');
   const barcodeInputRef = useRef(null);
 
-  useEffect(() => {
-  checkUser();
-  const { data } = supabase.auth.onAuthStateChange((event, session) => {
-    setUser(session?.user ?? null);
-    if (session?.user) {
-      fetchItems();
-    }
-  });
-  return () => {
-    if (data?.subscription) {
-      data.subscription.unsubscribe();
-    }
-  };
-}, [checkUser]);
-  const checkUser = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    if (user) fetchItems();
-  }, []);
-
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from('items')
@@ -60,6 +40,27 @@ function App() {
     if (error) console.error('Error fetching items:', error);
     else setItems(data || []);
   };
+
+  const checkUser = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+    if (user) fetchItems();
+  }, []);
+
+  useEffect(() => {
+    checkUser();
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchItems();
+      }
+    });
+    return () => {
+      if (data?.subscription) {
+        data.subscription.unsubscribe();
+      }
+    };
+  }, [checkUser]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -330,19 +331,19 @@ function App() {
                 </select>
               </div>
               {itemType === 'película' && (
-  <div className="form-group">
-    <label>Formato</label>
-    <select
-      value={formData.format}
-      onChange={(e) => setFormData({ ...formData, format: e.target.value })}
-    >
-      <option value="dvd">DVD</option>
-      <option value="bluray">Blu-ray</option>
-      <option value="digital">Digital</option>
-      <option value="otro">Otro</option>
-    </select>
-  </div>
-)}
+                <div className="form-group">
+                  <label>Formato</label>
+                  <select
+                    value={formData.format}
+                    onChange={(e) => setFormData({ ...formData, format: e.target.value })}
+                  >
+                    <option value="dvd">DVD</option>
+                    <option value="bluray">Blu-ray</option>
+                    <option value="digital">Digital</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -426,4 +427,3 @@ function App() {
 }
 
 export default App;
- 
