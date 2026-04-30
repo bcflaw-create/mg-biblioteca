@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import './App.css';
@@ -50,7 +50,7 @@ function App() {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
     if (user) fetchItems();
-  };
+  }, []);
 
   const fetchItems = async () => {
     const { data, error } = await supabase
