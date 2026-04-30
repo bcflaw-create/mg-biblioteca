@@ -16,10 +16,11 @@ function App() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
-  const [barcode, setBarcode] = useState('');
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [itemType, setItemType] = useState('libro');
-  const [searchResults, setSearchResults] = useState(null);
-  const [searching, setSearching] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -33,12 +34,17 @@ function App() {
     isbn: '',
     publisher: '',
     pages: '',
-    genre: ''
+    genre: '',
+    director: '',
+    actors: '',
+    duration: '',
+    rating: '',
+    synopsis: ''
   });
-  const [filter, setFilter] = useState('todos');
+  const [searching, setSearching] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('todos');
   const [yearFilter, setYearFilter] = useState('todos');
-  const barcodeInputRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   const fetchItems = async () => {
     const { data, error } = await supabase
@@ -70,38 +76,32 @@ function App() {
     };
   }, [checkUser]);
 
-  const searchBarcodeAuto = async (code) => {
-    if (!code.trim() || code.length < 5) return;
+  useEffect(() => {
+    filterItems();
+  }, [items, searchQuery, categoryFilter, yearFilter, itemType]);
+
+  const filterItems = () => {
+    let filtered = itemType === 'todos' ? items : items.filter(i => i.type === itemType);
     
-    setSearching(true);
-    try {
-      if (itemType === 'libro') {
-        const { data } = await axios.get(`https://openlibrary.org/api/books?bibkeys=ISBN:${code}&format=json&jscmd=data`);
-        const bookData = data[`ISBN:${code}`];
-        
-        if (bookData) {
-          setFormData(prev => ({
-            ...prev,
-            title: bookData.title || '',
-            author: bookData.authors?.[0]?.name || '',
-            year: bookData.publish_date?.slice(-4) || '',
-            cover_url: bookData.cover?.medium || '',
-            isbn: code,
-            publisher: bookData.publishers?.[0]?.name || '',
-            pages: bookData.number_of_pages?.toString() || ''
-          }));
-          setSearchResults({ found: true, type: 'libro', data: bookData });
-        } else {
-          searchGoogleBooks(code);
-        }
-      }
-    } catch (error) {
-      console.error('Error searching:', error);
-      if (itemType === 'libro') {
-        searchGoogleBooks(code);
-      }
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.title?.toLowerCase().includes(query) ||
+        item.author?.toLowerCase().includes(query) ||
+        item.isbn?.includes(query) ||
+        item.category?.toLowerCase().includes(query)
+      );
     }
-    setSearching(false);
+
+    if (categoryFilter !== 'todos') {
+      filtered = filtered.filter(item => item.category === categoryFilter);
+    }
+
+    if (yearFilter !== 'todos') {
+      filtered = filtered.filter(item => item.year === parseInt(yearFilter));
+    }
+
+    setFilteredItems(filtered);
   };
 
   const searchGoogleBooks = async (isbn) => {
@@ -109,34 +109,104 @@ function App() {
       const { data } = await axios.get(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
       if (data.items && data.items.length > 0) {
         const book = data.items[0].volumeInfo;
-        setFormData(prev => ({
-          ...prev,
+        return {
           title: book.title || '',
           author: book.authors?.[0] || '',
           year: book.publishedDate?.slice(0, 4) || '',
           cover_url: book.imageLinks?.thumbnail || '',
-          isbn: isbn,
           publisher: book.publisher || '',
           pages: book.pageCount?.toString() || '',
-          category: book.categories?.[0] || ''
-        }));
-        setSearchResults({ found: true, type: 'libro', data: book });
-      } else {
-        setSearchResults({ found: false, type: 'libro' });
+          category: book.categories?.[0] || '',
+          synopsis: book.description || ''
+        };
       }
     } catch (error) {
       console.error('Google Books error:', error);
-      setSearchResults({ found: false, type: 'libro', error: true });
     }
+    return null;
   };
 
-  const handleBarcodeChange = (e) => {
-    const value = e.target.value;
-    setBarcode(value);
-    
-    if (value.length >= 10 && value.length <= 13) {
-      searchBarcodeAuto(value);
+  const searchOpenLibrary = async (isbn) => {
+    try {
+      const { data } = await axios.get(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+      const bookData = data[`ISBN:${isbn}`];
+      if (bookData) {
+        return {
+          title: bookData.title || '',
+          author: bookData.authors?.[0]?.name || '',
+          year: bookData.publish_date?.slice(-4) || '',
+          cover_url: bookData.cover?.medium || '',
+          publisher: bookData.publishers?.[0]?.name || '',
+          pages: bookData.number_of_pages?.toString() || ''
+        };
+      }
+    } catch (error) {
+      console.error('OpenLibrary error:', error);
     }
+    return null;
+  };
+
+  const searchMovieTmdb = async (title) => {
+    try {
+      const { data } = await axios.get(`https://api.themoviedb.org/3/search/movie?api_key=${tmdbApiKey}&query=${title}`);
+      if (data.results && data.results.length > 0) {
+        const movie = data.results[0];
+        return {
+          title: movie.title || '',
+          year: movie.release_date?.slice(0, 4) || '',
+          cover_url: movie.poster_path ? `https://image.tmdb.org/t/p/w300${movie.poster_path}` : '',
+          synopsis: movie.overview || '',
+          rating: movie.vote_average?.toFixed(1) || '',
+          category: movie.genres?.map(g => g.name).join(', ') || ''
+        };
+      }
+    } catch (error) {
+      console.error('TMDb error:', error);
+    }
+    return null;
+  };
+
+  const handleBarcodeSearch = async (e) => {
+    if (e.key !== 'Enter') return;
+    
+    const barcode = e.target.value.trim();
+    if (!barcode || barcode.length < 5) return;
+
+    setSearching(true);
+    let result = null;
+
+    if (itemType === 'libro') {
+      result = await searchOpenLibrary(barcode);
+      if (!result) {
+        result = await searchGoogleBooks(barcode);
+      }
+    }
+
+    if (result) {
+      setFormData(prev => ({ ...prev, ...result, isbn: barcode }));
+    }
+    
+    setSearching(false);
+  };
+
+  const handleTitleSearch = async (e) => {
+    if (e.key !== 'Enter') return;
+
+    const title = e.target.value.trim();
+    if (!title || title.length < 3) return;
+
+    setSearching(true);
+    let result = null;
+
+    if (itemType === 'película') {
+      result = await searchMovieTmdb(title);
+    }
+
+    if (result) {
+      setFormData(prev => ({ ...prev, ...result }));
+    }
+
+    setSearching(false);
   };
 
   const handleLogin = async (e) => {
@@ -176,7 +246,6 @@ function App() {
     const { error } = await supabase.from('items').insert([{
       user_id: user.id,
       type: itemType,
-      barcode: barcode || null,
       title: formData.title,
       author: formData.author,
       year: formData.year ? parseInt(formData.year) : null,
@@ -189,21 +258,25 @@ function App() {
       isbn: formData.isbn || null,
       publisher: formData.publisher || null,
       pages: formData.pages ? parseInt(formData.pages) : null,
-      genre: formData.genre || null
+      genre: formData.genre || null,
+      director: formData.director || null,
+      actors: formData.actors || null,
+      duration: formData.duration || null,
+      rating: formData.rating ? parseFloat(formData.rating) : null,
+      synopsis: formData.synopsis || null
     }]);
 
     if (error) alert('Error al guardar: ' + error.message);
     else {
       alert('Item guardado exitosamente');
-      setBarcode('');
-      setFormData({ 
-        title: '', author: '', year: '', category: '', condition: 'bueno', 
-        location: '', cover_url: '', notes: '', format: 'dvd', isbn: '', 
-        publisher: '', pages: '', genre: '' 
+      setFormData({
+        title: '', author: '', year: '', category: '', condition: 'bueno',
+        location: '', cover_url: '', notes: '', format: 'dvd', isbn: '',
+        publisher: '', pages: '', genre: '', director: '', actors: '',
+        duration: '', rating: '', synopsis: ''
       });
-      setSearchResults(null);
       fetchItems();
-      barcodeInputRef.current?.focus();
+      searchInputRef.current?.focus();
     }
   };
 
@@ -216,10 +289,10 @@ function App() {
   };
 
   const exportToExcel = () => {
-    const dataToExport = getFilteredItems().map(item => ({
+    const dataToExport = filteredItems.map(item => ({
       'Tipo': item.type === 'libro' ? 'Libro' : 'Película',
       'Título': item.title,
-      'Autor/Director': item.author,
+      'Autor/Director': item.author || item.director || '',
       'Año': item.year,
       'Categoría': item.category,
       'Condición': item.condition,
@@ -228,6 +301,7 @@ function App() {
       'Editorial': item.publisher || '',
       'Páginas': item.pages || '',
       'Género': item.genre || '',
+      'Rating': item.rating || '',
       'Notas': item.notes
     }));
 
@@ -235,20 +309,6 @@ function App() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Biblioteca');
     XLSX.writeFile(wb, `biblioteca_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
-
-  const getFilteredItems = () => {
-    let filtered = filter === 'todos' ? items : items.filter(item => item.type === filter);
-    
-    if (categoryFilter !== 'todos') {
-      filtered = filtered.filter(item => item.category === categoryFilter);
-    }
-    
-    if (yearFilter !== 'todos') {
-      filtered = filtered.filter(item => item.year === parseInt(yearFilter));
-    }
-    
-    return filtered;
   };
 
   const getCategories = () => {
@@ -260,8 +320,6 @@ function App() {
     const years = new Set(items.filter(i => i.year).map(i => i.year));
     return Array.from(years).sort((a, b) => b - a);
   };
-
-  const filteredItems = getFilteredItems();
 
   if (!user) {
     return (
@@ -309,88 +367,88 @@ function App() {
   return (
     <div className="app-container">
       <header className="header">
-        <div className="header-left">
-          <h1 className="logo">MG</h1>
-          <span className="tagline-header">biblioteca personal</span>
-        </div>
-        <div className="header-right">
-          <button onClick={exportToExcel} className="export-btn" title="Exportar a Excel">
-            📊 Exportar
-          </button>
-          <button onClick={handleLogout} className="logout-btn">Cerrar sesión</button>
+        <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          ☰
+        </button>
+        <h1 className="logo">MG</h1>
+        <div className="header-actions">
+          <button onClick={exportToExcel} className="export-btn">📊</button>
+          <button onClick={handleLogout} className="logout-btn">Salir</button>
         </div>
       </header>
 
-      <div className="plex-container">
-        <aside className="sidebar">
-          <nav className="sidebar-nav">
-            <div className="nav-section">
-              <h3 className="nav-title">Menú</h3>
-              <button className="nav-item active">
-                🏠 Inicio
+      <div className="main-layout">
+        <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div className="sidebar-content">
+            <div className="type-selector-sidebar">
+              <button
+                className={`type-btn-sidebar ${itemType === 'todos' ? 'active' : ''}`}
+                onClick={() => { setItemType('todos'); setSidebarOpen(false); }}
+              >
+                📚 Todos
               </button>
-              <button className="nav-item">
-                ⭐ Favoritos
+              <button
+                className={`type-btn-sidebar ${itemType === 'libro' ? 'active' : ''}`}
+                onClick={() => { setItemType('libro'); setSidebarOpen(false); }}
+              >
+                📖 Libros
               </button>
-              <button className="nav-item">
-                👁️ Visto Recientemente
+              <button
+                className={`type-btn-sidebar ${itemType === 'película' ? 'active' : ''}`}
+                onClick={() => { setItemType('película'); setSidebarOpen(false); }}
+              >
+                🎬 Películas
               </button>
             </div>
 
-            <div className="nav-section">
-              <h3 className="nav-title">Bibliotecas</h3>
-              <button 
-                className={`nav-item ${filter === 'todos' ? 'active' : ''}`}
-                onClick={() => setFilter('todos')}
-              >
-                📚 Todos ({items.length})
-              </button>
-              <button 
-                className={`nav-item ${filter === 'libro' ? 'active' : ''}`}
-                onClick={() => setFilter('libro')}
-              >
-                📖 Libros ({items.filter(i => i.type === 'libro').length})
-              </button>
-              <button 
-                className={`nav-item ${filter === 'película' ? 'active' : ''}`}
-                onClick={() => setFilter('película')}
-              >
-                🎬 Películas ({items.filter(i => i.type === 'película').length})
-              </button>
-            </div>
-
-            <div className="nav-section">
-              <h3 className="nav-title">Categorías</h3>
-              <select 
-                className="filter-select"
+            <div className="filter-section">
+              <label>Categorías</label>
+              <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
-                <option value="todos">Todas las categorías</option>
+                <option value="todos">Todas</option>
                 {getCategories().map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>
 
-            <div className="nav-section">
-              <h3 className="nav-title">Años</h3>
-              <select 
-                className="filter-select"
+            <div className="filter-section">
+              <label>Años</label>
+              <select
                 value={yearFilter}
                 onChange={(e) => setYearFilter(e.target.value)}
               >
-                <option value="todos">Todos los años</option>
+                <option value="todos">Todos</option>
                 {getYears().map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>
             </div>
-          </nav>
+
+            <div className="stats">
+              <p>Total: <strong>{items.length}</strong></p>
+              <p>Libros: <strong>{items.filter(i => i.type === 'libro').length}</strong></p>
+              <p>Películas: <strong>{items.filter(i => i.type === 'película').length}</strong></p>
+            </div>
+          </div>
         </aside>
 
-        <main className="plex-main">
-          <section className="add-item-section">
+        <main className="content">
+          <div className="search-bar-container">
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="🔍 Busca por título, autor, ISBN, categoría..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-bar"
+            />
+            <span className="result-count">{filteredItems.length} resultados</span>
+          </div>
+
+          <div className="add-item-panel">
             <h2>Agregar nuevo item</h2>
             
             <div className="type-selector">
@@ -408,47 +466,43 @@ function App() {
               </button>
             </div>
 
-            <div className="barcode-form">
-              <input
-                ref={barcodeInputRef}
-                type="text"
-                placeholder={itemType === 'libro' ? 'Escanea ISBN o código de barras' : 'Escanea código'}
-                value={barcode}
-                onChange={handleBarcodeChange}
-                className="barcode-input"
-                disabled={searching}
-              />
-              {searching && <span className="searching-indicator">Buscando...</span>}
-            </div>
-
-            {searchResults && (
-              <div className={`search-result ${searchResults.found ? 'found' : 'not-found'}`}>
-                {searchResults.found ? (
-                  <p>✓ Encontrado automáticamente. Revisa los detalles abajo.</p>
-                ) : (
-                  <p>✗ No encontrado. Completa manualmente.</p>
-                )}
-              </div>
-            )}
-
-            <form onSubmit={saveItem} className="item-form">
-              <div className="form-group">
-                <label>Título *</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                />
-              </div>
+            <form onSubmit={saveItem} className="add-form">
+              {itemType === 'libro' ? (
+                <>
+                  <div className="form-group">
+                    <label>ISBN o Título (Presiona Enter para buscar)</label>
+                    <input
+                      type="text"
+                      placeholder="Escanea ISBN o escribe título"
+                      onKeyPress={handleBarcodeSearch}
+                      disabled={searching}
+                    />
+                    {searching && <span className="searching">Buscando...</span>}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>Título de la película (Presiona Enter para buscar)</label>
+                    <input
+                      type="text"
+                      placeholder="Escribe el título"
+                      onKeyPress={handleTitleSearch}
+                      disabled={searching}
+                    />
+                    {searching && <span className="searching">Buscando en TMDb...</span>}
+                  </div>
+                </>
+              )}
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Autor / Director</label>
+                  <label>Título *</label>
                   <input
                     type="text"
-                    value={formData.author}
-                    onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    required
                   />
                 </div>
                 <div className="form-group">
@@ -461,6 +515,90 @@ function App() {
                 </div>
               </div>
 
+              {itemType === 'libro' ? (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Autor</label>
+                      <input
+                        type="text"
+                        value={formData.author}
+                        onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Editorial</label>
+                      <input
+                        type="text"
+                        value={formData.publisher}
+                        onChange={(e) => setFormData({ ...formData, publisher: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>ISBN</label>
+                      <input
+                        type="text"
+                        value={formData.isbn}
+                        onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Páginas</label>
+                      <input
+                        type="number"
+                        value={formData.pages}
+                        onChange={(e) => setFormData({ ...formData, pages: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Director</label>
+                      <input
+                        type="text"
+                        value={formData.director}
+                        onChange={(e) => setFormData({ ...formData, director: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Rating (0-10)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="10"
+                        value={formData.rating}
+                        onChange={(e) => setFormData({ ...formData, rating: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Actores</label>
+                    <input
+                      type="text"
+                      value={formData.actors}
+                      onChange={(e) => setFormData({ ...formData, actors: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Duración (min)</label>
+                    <input
+                      type="number"
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Categoría</label>
@@ -468,7 +606,7 @@ function App() {
                     type="text"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder={itemType === 'libro' ? 'Novela, Técnico...' : 'Acción, Drama...'}
+                    placeholder={itemType === 'libro' ? 'Novela, Técnico...' : 'Drama, Acción...'}
                   />
                 </div>
                 <div className="form-group">
@@ -485,130 +623,133 @@ function App() {
                 </div>
               </div>
 
-              {itemType === 'libro' && (
-                <>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>ISBN</label>
-                      <input
-                        type="text"
-                        value={formData.isbn}
-                        onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Editorial</label>
-                      <input
-                        type="text"
-                        value={formData.publisher}
-                        onChange={(e) => setFormData({ ...formData, publisher: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Páginas</label>
-                      <input
-                        type="number"
-                        value={formData.pages}
-                        onChange={(e) => setFormData({ ...formData, pages: e.target.value })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Género</label>
-                      <input
-                        type="text"
-                        value={formData.genre}
-                        onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {itemType === 'película' && (
-                <div className="form-group">
-                  <label>Formato</label>
-                  <select
-                    value={formData.format}
-                    onChange={(e) => setFormData({ ...formData, format: e.target.value })}
-                  >
-                    <option value="dvd">DVD</option>
-                    <option value="bluray">Blu-ray</option>
-                    <option value="digital">Digital</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                </div>
-              )}
-
               <div className="form-group">
                 <label>Ubicación</label>
                 <input
                   type="text"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Estante, piso, etc."
+                  placeholder="Estante, piso..."
                 />
               </div>
 
               <div className="form-group">
-                <label>Notas</label>
+                <label>Sinopsis / Notas</label>
                 <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows="2"
+                  value={formData.synopsis || formData.notes}
+                  onChange={(e) => setFormData({ ...formData, synopsis: e.target.value, notes: e.target.value })}
+                  rows="3"
                 />
               </div>
 
-              <button type="submit" className="save-btn">Guardar</button>
+              <button type="submit" className="save-btn">Guardar Item</button>
             </form>
-          </section>
+          </div>
 
-          <section className="library-section">
-            <div className="library-header">
-              <h2>{filter === 'todos' ? 'Mi Biblioteca' : filter === 'libro' ? 'Mis Libros' : 'Mis Películas'}</h2>
-              <span className="item-count">{filteredItems.length} items</span>
-            </div>
-
+          <div className="results-section">
+            <h2>Resultados ({filteredItems.length})</h2>
+            
             {filteredItems.length > 0 ? (
-              <div className="plex-grid">
+              <div className="results-list">
                 {filteredItems.map(item => (
-                  <div key={item.id} className="plex-item">
-                    <div className="plex-poster">
+                  <div
+                    key={item.id}
+                    className="result-card"
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <div className="result-cover">
                       {item.cover_url ? (
                         <img src={item.cover_url} alt={item.title} />
                       ) : (
                         <div className="no-cover">
-                          <span>{item.type === 'libro' ? '📚' : '🎬'}</span>
+                          {item.type === 'libro' ? '📚' : '🎬'}
                         </div>
                       )}
-                      <div className="plex-overlay">
-                        <button 
-                          className="delete-btn-plex"
-                          onClick={() => deleteItem(item.id)}
-                        >
-                          🗑️ Eliminar
-                        </button>
-                      </div>
                     </div>
-                    <div className="plex-info">
+                    <div className="result-info">
                       <h3>{item.title}</h3>
-                      {item.author && <p className="author">{item.author}</p>}
-                      {item.year && <p className="year">{item.year}</p>}
-                      {item.category && <p className="category">{item.category}</p>}
-                      {item.publisher && <p className="publisher">{item.publisher}</p>}
-                      <p className={`condition condition-${item.condition}`}>{item.condition}</p>
+                      <p className="author">{item.author || item.director || 'Sin autor'}</p>
+                      <p className="meta">{item.year} • {item.category}</p>
+                      <p className="condition">{item.condition}</p>
                     </div>
+                    <button
+                      className="delete-small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteItem(item.id);
+                      }}
+                    >
+                      🗑️
+                    </button>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="empty-state">
-                <p>No hay items con estos filtros. ¡Agrega tu primer {filter === 'libro' ? 'libro' : filter === 'película' ? 'película' : 'item'}!</p>
+                No hay items con estos criterios.
               </div>
             )}
-          </section>
+          </div>
         </main>
+
+        {selectedItem && (
+          <div className="detail-panel">
+            <button className="close-detail" onClick={() => setSelectedItem(null)}>×</button>
+            
+            <div className="detail-content">
+              {selectedItem.cover_url && (
+                <img src={selectedItem.cover_url} alt={selectedItem.title} className="detail-cover" />
+              )}
+              
+              <h2>{selectedItem.title}</h2>
+              
+              {selectedItem.type === 'libro' ? (
+                <>
+                  {selectedItem.author && <p><strong>Autor:</strong> {selectedItem.author}</p>}
+                  {selectedItem.publisher && <p><strong>Editorial:</strong> {selectedItem.publisher}</p>}
+                  {selectedItem.isbn && <p><strong>ISBN:</strong> {selectedItem.isbn}</p>}
+                  {selectedItem.pages && <p><strong>Páginas:</strong> {selectedItem.pages}</p>}
+                </>
+              ) : (
+                <>
+                  {selectedItem.director && <p><strong>Director:</strong> {selectedItem.director}</p>}
+                  {selectedItem.actors && <p><strong>Actores:</strong> {selectedItem.actors}</p>}
+                  {selectedItem.duration && <p><strong>Duración:</strong> {selectedItem.duration} min</p>}
+                  {selectedItem.rating && <p><strong>Rating:</strong> {selectedItem.rating}/10 ⭐</p>}
+                </>
+              )}
+
+              {selectedItem.year && <p><strong>Año:</strong> {selectedItem.year}</p>}
+              {selectedItem.category && <p><strong>Categoría:</strong> {selectedItem.category}</p>}
+              {selectedItem.location && <p><strong>Ubicación:</strong> {selectedItem.location}</p>}
+              {selectedItem.condition && <p><strong>Condición:</strong> {selectedItem.condition}</p>}
+              
+              {selectedItem.synopsis && (
+                <>
+                  <h4>Descripción</h4>
+                  <p>{selectedItem.synopsis}</p>
+                </>
+              )}
+
+              {selectedItem.notes && (
+                <>
+                  <h4>Notas</h4>
+                  <p>{selectedItem.notes}</p>
+                </>
+              )}
+
+              <button
+                className="delete-btn-detail"
+                onClick={() => {
+                  deleteItem(selectedItem.id);
+                  setSelectedItem(null);
+                }}
+              >
+                🗑️ Eliminar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
