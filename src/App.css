@@ -74,6 +74,13 @@ body {
   letter-spacing: 1px;
 }
 
+.tagline-header {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: lowercase;
+  margin-left: 15px;
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -162,9 +169,37 @@ body {
   z-index: 100;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
 .header .logo {
-  font-size: 28px;
+  font-size: 32px;
   margin: 0;
+}
+
+.header-right {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.export-btn {
+  padding: 10px 16px;
+  background: var(--accent);
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.export-btn:hover {
+  background: var(--accent-light);
+  transform: translateY(-2px);
 }
 
 .logout-btn {
@@ -184,29 +219,101 @@ body {
   color: var(--accent);
 }
 
-.main-content {
+.plex-container {
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: 30px;
-  padding: 30px;
-  max-width: 1600px;
-  margin: 0 auto;
+  grid-template-columns: 250px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 80px);
 }
 
-.scanner-section {
+.sidebar {
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  max-height: calc(100vh - 80px);
+  position: sticky;
+  top: 80px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nav-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+
+.nav-item {
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  font-family: inherit;
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.nav-item.active {
+  background: var(--accent);
+  color: white;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.plex-main {
+  padding: 30px;
+  overflow-y: auto;
+  max-height: calc(100vh - 80px);
+}
+
+.add-item-section {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 30px;
-  max-height: 80vh;
-  overflow-y: auto;
-  position: sticky;
-  top: 90px;
+  padding: 25px;
+  margin-bottom: 30px;
 }
 
-.scanner-section h2,
-.library-section h2 {
-  font-size: 20px;
+.add-item-section h2 {
+  font-size: 18px;
   margin-bottom: 20px;
   color: var(--text-primary);
   font-weight: 600;
@@ -229,6 +336,7 @@ body {
   transition: all 0.2s ease;
   font-size: 13px;
   font-weight: 500;
+  font-family: inherit;
 }
 
 .type-btn.active {
@@ -241,6 +349,8 @@ body {
   display: flex;
   gap: 10px;
   margin-bottom: 15px;
+  align-items: center;
+  position: relative;
 }
 
 .barcode-input {
@@ -252,6 +362,7 @@ body {
   color: var(--text-primary);
   font-size: 14px;
   transition: all 0.2s ease;
+  font-family: inherit;
 }
 
 .barcode-input:focus {
@@ -260,22 +371,20 @@ body {
   background: #2a2a2a;
 }
 
-.scan-btn {
-  padding: 12px 24px;
-  background: var(--accent);
-  border: none;
-  color: white;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+.barcode-input:disabled {
+  opacity: 0.6;
 }
 
-.scan-btn:hover {
-  background: var(--accent-light);
-  transform: translateY(-2px);
+.searching-indicator {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .search-result {
@@ -360,6 +469,7 @@ body {
   font-size: 14px;
   margin-top: 10px;
   transition: all 0.2s ease;
+  font-family: inherit;
 }
 
 .save-btn:hover {
@@ -367,107 +477,164 @@ body {
   transform: translateY(-2px);
 }
 
-.library-section h2 {
-  margin-bottom: 20px;
+.library-section {
+  margin-top: 30px;
 }
 
-.filter-tabs {
+.library-header {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
 }
 
-.filter-tab {
-  padding: 8px 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+.library-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.item-count {
+  font-size: 14px;
   color: var(--text-secondary);
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.filter-tab.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
-}
-
-.filter-tab:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.items-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
-}
-
-.item-card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+.plex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.plex-item {
+  cursor: pointer;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.plex-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
   border-radius: 8px;
   overflow: hidden;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.item-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(182, 36, 217, 0.1);
-}
-
-.item-card .cover {
-  width: 100%;
-  height: 140px;
-  object-fit: cover;
   background: var(--bg-hover);
+  margin-bottom: 12px;
+  group: hover;
 }
 
-.item-info {
-  padding: 14px;
+.plex-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: all 0.3s ease;
+}
+
+.plex-poster:hover img {
+  transform: scale(1.05);
+}
+
+.no-cover {
+  width: 100%;
+  height: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+  background: linear-gradient(135deg, var(--bg-hover) 0%, #2a1a3a 100%);
 }
 
-.item-card h3 {
+.plex-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.plex-poster:hover .plex-overlay {
+  opacity: 1;
+}
+
+.delete-btn-plex {
+  padding: 10px 16px;
+  background: var(--danger);
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.4;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.delete-btn-plex:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.plex-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plex-info h3 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
   color: var(--text-primary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin: 0;
 }
 
-.item-card p {
+.plex-info p {
   font-size: 12px;
   color: var(--text-secondary);
   margin: 0;
 }
 
-.item-card .author {
+.plex-info .author {
   color: var(--accent);
   font-weight: 500;
 }
 
-.item-card .year {
+.plex-info .year {
   color: var(--text-secondary);
+  font-size: 11px;
 }
 
-.item-card .category {
+.plex-info .category {
   color: var(--text-secondary);
+  font-size: 11px;
   font-style: italic;
 }
 
-.item-card .location {
+.plex-info .publisher {
   color: var(--text-secondary);
   font-size: 11px;
 }
@@ -476,7 +643,7 @@ body {
   display: inline-block;
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   width: fit-content;
@@ -502,23 +669,6 @@ body {
   color: #9ca3af;
 }
 
-.delete-btn {
-  margin-top: 8px;
-  padding: 6px 10px;
-  background: transparent;
-  border: 1px solid var(--danger);
-  color: var(--danger);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.delete-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-}
-
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
@@ -528,25 +678,45 @@ body {
 }
 
 @media (max-width: 1024px) {
-  .main-content {
-    grid-template-columns: 1fr;
-    gap: 20px;
+  .plex-container {
+    grid-template-columns: 200px 1fr;
   }
 
-  .scanner-section {
-    position: static;
-    max-height: none;
+  .plex-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 15px;
   }
 }
 
 @media (max-width: 768px) {
-  .main-content {
+  .plex-container {
     grid-template-columns: 1fr;
-    padding: 20px;
   }
 
-  .scanner-section {
-    position: static;
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 80px;
+    width: 250px;
+    max-height: none;
+    height: calc(100vh - 80px);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .plex-main {
+    padding: 20px;
+    max-height: none;
+  }
+
+  .plex-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
   }
 
   .form-row {
@@ -557,8 +727,30 @@ body {
     padding: 15px 20px;
   }
 
-  .items-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
+  .library-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+
+  .header-right {
+    width: 100%;
+  }
+
+  .export-btn,
+  .logout-btn {
+    flex: 1;
+  }
+
+  .plex-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
