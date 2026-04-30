@@ -46,7 +46,7 @@ function App() {
     }
   };
 }, [checkUser]);
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
     if (user) fetchItems();
