@@ -45,7 +45,7 @@ function App() {
       data.subscription.unsubscribe();
     }
   };
-}, []);
+}, [checkUser]);
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
