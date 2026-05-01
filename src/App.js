@@ -46,6 +46,7 @@ function App() {
   });
   const [searching, setSearching] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('todos');
+  const [selectedItems, setSelectedItems] = useState(new Set());
   const searchInputRef = useRef(null);
 
   const fetchItems = async () => {
@@ -543,6 +544,53 @@ function App() {
     XLSX.writeFile(wb, `biblioteca_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const toggleItemSelection = (itemId) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId);
+    } else {
+      newSelected.add(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const exportSelectedToCSV = () => {
+    if (selectedItems.size === 0) {
+      alert('Selecciona al menos un item');
+      return;
+    }
+
+    const itemsToExport = items.filter(item => selectedItems.has(item.id));
+    let csv = 'ETIQUETA\n';
+    
+    itemsToExport.forEach((item, index) => {
+      const itemIndex = items.findIndex(i => i.id === item.id);
+      const etiqueta = generateItemCode(itemIndex, item.title);
+      csv += etiqueta + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `etiquetas_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setSelectedItems(new Set());
+  };
+
+  const selectAllFiltered = () => {
+    const allIds = new Set(filteredItems.map(item => item.id));
+    setSelectedItems(allIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedItems(new Set());
+  };
+
   const getCategories = () => {
     const categories = new Set(items.filter(i => i.category).map(i => i.category));
     return Array.from(categories).sort();
@@ -603,6 +651,21 @@ function App() {
             +
           </button>
           <button onClick={exportToExcel} className="export-btn">📊</button>
+          {selectedItems.size > 0 && (
+            <>
+              <button onClick={exportSelectedToCSV} className="export-btn" title={`Descargar ${selectedItems.size} etiqueta(s)`}>
+                🏷️ {selectedItems.size}
+              </button>
+              <button onClick={clearSelection} className="export-btn" title="Limpiar selección">
+                ✕
+              </button>
+            </>
+          )}
+          {filteredItems.length > 0 && selectedItems.size !== filteredItems.length && (
+            <button onClick={selectAllFiltered} className="export-btn" title="Seleccionar todos">
+              ☑️
+            </button>
+          )}
           <button onClick={handleLogout} className="logout-btn">Salir</button>
         </div>
       </header>
@@ -691,6 +754,15 @@ function App() {
                     className="gallery-item"
                     onClick={() => setSelectedItem(item)}
                   >
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.has(item.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleItemSelection(item.id);
+                      }}
+                      className="item-checkbox"
+                    />
                     <div className="poster">
                       {item.cover_url ? (
                         <img src={item.cover_url} alt={item.title} />

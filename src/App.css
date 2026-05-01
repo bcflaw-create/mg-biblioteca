@@ -414,10 +414,26 @@ body {
 .gallery-item {
   cursor: pointer;
   transition: all 0.3s ease;
+  position: relative;
 }
 
 .gallery-item:hover {
   transform: translateY(-8px);
+}
+
+.item-checkbox {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: #6200EE;
+}
+
+.gallery-item:has(.item-checkbox:checked) {
+  opacity: 0.7;
 }
 
 .poster {
