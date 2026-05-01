@@ -113,7 +113,7 @@ function App() {
     if (user?.id) {
       fetchWatchlist();
     }
-  }, [user]);
+  }, [user?.id, fetchWatchlist]);
 
   const searchGoogleBooks = async (query) => {
     try {
@@ -639,7 +639,7 @@ function App() {
     return Array.from(categories).sort();
   };
 
-  const fetchWatchlist = async () => {
+  const fetchWatchlist = useCallback(async () => {
     if (!user?.id) return;
     
     const { data, error } = await supabase
@@ -653,7 +653,7 @@ function App() {
     } else {
       setWatchlist(data || []);
     }
-  };
+  }, [user?.id]);
 
   const addToWatchlist = async (e) => {
     e.preventDefault();
