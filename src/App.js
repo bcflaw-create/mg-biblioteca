@@ -20,9 +20,10 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [itemType, setItemType] = useState('película');
-  const [posterSize, setPosterSize] = useState(200);
+  const [posterSize, setPosterSize] = useState(180);
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -336,7 +337,111 @@ function App() {
     }
   };
 
-  const exportToExcel = () => {
+  const updateItem = async (e) => {
+    e.preventDefault();
+    if (!editingItem.title.trim()) {
+      alert('El título es obligatorio');
+      return;
+    }
+
+    try {
+      const updateData = {
+        title: editingItem.title,
+        author: editingItem.author || null,
+        year: editingItem.year ? parseInt(editingItem.year) : null,
+        category: editingItem.category || null,
+        condition: editingItem.condition,
+        location: editingItem.location || null,
+        cover_url: editingItem.cover_url || null,
+        notes: editingItem.notes || null,
+        isbn: editingItem.isbn || null,
+        publisher: editingItem.publisher || null,
+        pages: editingItem.pages ? parseInt(editingItem.pages) : null,
+        genre: editingItem.genre || null,
+        director: editingItem.director || null,
+        actors: editingItem.actors || null,
+        duration: editingItem.duration || null,
+        rating: editingItem.rating ? parseFloat(editingItem.rating) : null,
+        synopsis: editingItem.synopsis || null
+      };
+
+      const { error } = await supabase
+        .from('items')
+        .update(updateData)
+        .eq('id', editingItem.id);
+
+      if (error) {
+        if (error.message.includes('actors')) {
+          const { actor, ...updateDataWithoutActors } = updateData;
+          const { error: retryError } = await supabase
+            .from('items')
+            .update(updateDataWithoutActors)
+            .eq('id', editingItem.id);
+          if (retryError) throw retryError;
+        } else {
+          throw error;
+        }
+      }
+
+      alert('Item actualizado exitosamente');
+      setEditingItem(null);
+      fetchItems();
+    } catch (error) {
+      alert('Error al actualizar: ' + error.message);
+      console.error('Update error:', error);
+    }
+  };
+
+  const generateItemCode = (index, title) => {
+    const num = String(index + 1).padStart(3, '0');
+    return `${num}-${title}`;
+  };
+
+  const getItemIndex = (itemId) => {
+    return items.findIndex(item => item.id === itemId);
+  };
+
+  const exportItemToExcel = (item) => {
+    const itemIndex = getItemIndex(item.id);
+    const dataToExport = [{
+      'Código': generateItemCode(itemIndex, item.title),
+      'Tipo': item.type === 'libro' ? 'Libro' : 'Película',
+      'Título': item.title,
+      'Autor/Director': item.author || item.director || '',
+      'Año': item.year,
+      'Categoría': item.category,
+      'Condición': item.condition,
+      'Ubicación': item.location,
+      'ISBN': item.isbn || '',
+      'Editorial': item.publisher || '',
+      'Páginas': item.pages || '',
+      'Actores': item.actors || '',
+      'Duración': item.duration || '',
+      'Rating': item.rating || '',
+      'Notas': item.notes
+    }];
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, item.title.slice(0, 31));
+    XLSX.writeFile(wb, `${item.title}.xlsx`);
+  };
+
+  const exportItemToCSV = (item) => {
+    const itemIndex = getItemIndex(item.id);
+    const etiqueta = generateItemCode(itemIndex, item.title);
+    const csv = 'ETIQUETA\n' + etiqueta;
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `etiquetas_${item.title}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
     const dataToExport = filteredItems.map(item => ({
       'Tipo': item.type === 'libro' ? 'Libro' : 'Película',
       'Título': item.title,
@@ -489,8 +594,8 @@ function App() {
               <label className="size-label">Tamaño:</label>
               <input
                 type="range"
-                min="120"
-                max="300"
+                min="100"
+                max="280"
                 value={posterSize}
                 onChange={(e) => setPosterSize(parseInt(e.target.value))}
                 className="size-slider"
@@ -583,10 +688,217 @@ function App() {
               >
                 🗑️ Eliminar
               </button>
+
+              <button
+                className="edit-btn-detail"
+                onClick={() => setEditingItem({ ...selectedItem })}
+              >
+                ✏️ Editar
+              </button>
+
+              <div className="export-menu">
+                <button className="export-menu-btn" title="Exportar">
+                  📥 Descargar
+                </button>
+                <div className="export-options">
+                  <button
+                    className="export-option"
+                    onClick={() => exportItemToExcel(selectedItem)}
+                  >
+                    📊 Excel
+                  </button>
+                  <button
+                    className="export-option"
+                    onClick={() => exportItemToCSV(selectedItem)}
+                  >
+                    🏷️ Etiquetas CSV
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </div>
+
+      {editingItem && (
+        <div className="modal-overlay" onClick={() => setEditingItem(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setEditingItem(null)}>×</button>
+            
+            <h2>Editar {editingItem.type === 'libro' ? 'Libro' : 'Película'}</h2>
+
+            <form onSubmit={updateItem} className="add-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Título *</label>
+                  <input
+                    type="text"
+                    value={editingItem.title}
+                    onChange={(e) => setEditingItem({ ...editingItem, title: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Año</label>
+                  <input
+                    type="number"
+                    value={editingItem.year || ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, year: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {editingItem.type === 'libro' ? (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Autor</label>
+                      <input
+                        type="text"
+                        value={editingItem.author || ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, author: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Editorial</label>
+                      <input
+                        type="text"
+                        value={editingItem.publisher || ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, publisher: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>ISBN</label>
+                      <input
+                        type="text"
+                        value={editingItem.isbn || ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, isbn: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Páginas</label>
+                      <input
+                        type="number"
+                        value={editingItem.pages || ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, pages: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Director</label>
+                      <input
+                        type="text"
+                        value={editingItem.director || ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, director: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Rating (0-10)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="10"
+                        value={editingItem.rating || ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, rating: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Actores</label>
+                    <input
+                      type="text"
+                      value={editingItem.actors || ''}
+                      onChange={(e) => setEditingItem({ ...editingItem, actors: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Duración (min)</label>
+                    <input
+                      type="number"
+                      value={editingItem.duration || ''}
+                      onChange={(e) => setEditingItem({ ...editingItem, duration: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Categoría</label>
+                  <input
+                    type="text"
+                    value={editingItem.category || ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Condición</label>
+                  <select
+                    value={editingItem.condition}
+                    onChange={(e) => setEditingItem({ ...editingItem, condition: e.target.value })}
+                  >
+                    <option value="nuevo">Nuevo</option>
+                    <option value="bueno">Bueno</option>
+                    <option value="regular">Regular</option>
+                    <option value="usado">Usado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Ubicación</label>
+                <input
+                  type="text"
+                  value={editingItem.location || ''}
+                  onChange={(e) => setEditingItem({ ...editingItem, location: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Portada (Imagen)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setEditingItem({ ...editingItem, cover_url: event.target?.result });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Sinopsis / Notas</label>
+                <textarea
+                  value={editingItem.synopsis || editingItem.notes || ''}
+                  onChange={(e) => setEditingItem({ ...editingItem, synopsis: e.target.value, notes: e.target.value })}
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="save-btn">Guardar Cambios</button>
+                <button type="button" className="cancel-btn" onClick={() => setEditingItem(null)}>Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showAddForm && (
         <div className="modal-overlay" onClick={() => setShowAddForm(false)}>

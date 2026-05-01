@@ -349,6 +349,7 @@ body {
   background: var(--bg-hover);
   outline: none;
   -webkit-appearance: none;
+  cursor: pointer;
 }
 
 .size-slider::-webkit-slider-thumb {
@@ -558,6 +559,114 @@ body {
 
 .delete-btn-detail:hover {
   background: #dc2626;
+}
+
+.edit-btn-detail {
+  padding: 10px 16px;
+  background: var(--accent);
+  border: none;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 8px;
+  font-family: inherit;
+}
+
+.edit-btn-detail:hover {
+  background: var(--accent-light);
+}
+
+.form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.cancel-btn {
+  padding: 12px 16px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.cancel-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.export-menu {
+  position: relative;
+  margin-top: 8px;
+}
+
+.export-menu-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.export-menu-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.export-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 4px;
+  overflow: hidden;
+  display: none;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.export-menu:hover .export-options {
+  display: flex;
+  flex-direction: column;
+}
+
+.export-option {
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  border-bottom: 1px solid var(--border);
+}
+
+.export-option:last-child {
+  border-bottom: none;
+}
+
+.export-option:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
 }
 
 .modal-overlay {
@@ -877,7 +986,7 @@ body {
   }
 
   .toolbar-right {
-    gap: 4px;
+    gap: 6px;
   }
 
   .size-label {
@@ -886,13 +995,23 @@ body {
   }
 
   .size-slider {
-    width: 70px;
-    height: 5px;
+    width: 100px;
+    height: 8px;
+  }
+
+  .size-slider::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  .size-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
   }
 
   .size-value {
     font-size: 10px;
-    min-width: 35px;
+    min-width: 40px;
   }
 
   .result-count {
