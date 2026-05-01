@@ -78,11 +78,7 @@ function App() {
     };
   }, [checkUser]);
 
-  useEffect(() => {
-    filterItems();
-  }, [items, searchQuery, categoryFilter, itemType]);
-
-  const filterItems = () => {
+  const filterItems = useCallback(() => {
     let filtered = itemType === 'todos' ? items : items.filter(i => i.type === itemType);
     
     if (searchQuery.trim()) {
@@ -101,7 +97,11 @@ function App() {
     }
 
     setFilteredItems(filtered);
-  };
+  }, [items, searchQuery, categoryFilter, itemType]);
+
+  useEffect(() => {
+    filterItems();
+  }, [filterItems]);
 
   const searchGoogleBooks = async (isbn) => {
     try {
