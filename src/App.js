@@ -105,7 +105,7 @@ function App() {
 
   const searchGoogleBooks = async (query) => {
     try {
-      const searchQuery = /^[0-9\-]{10,}$/.test(query) ? `isbn:${query}` : query;
+      const searchQuery = /^[0-9-]{10,}$/.test(query) ? `isbn:${query}` : query;
       const { data } = await axios.get(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=1`);
       if (data.items && data.items.length > 0) {
         const book = data.items[0].volumeInfo;
@@ -205,7 +205,7 @@ function App() {
     let result = null;
 
     if (itemType === 'libro') {
-      const isISBN = /^[0-9\-]{10,}$/.test(query); // ISBN tiene solo números y guiones
+      const isISBN = /^[0-9-]{10,}$/.test(query); // ISBN tiene solo números y guiones
       
       if (isISBN) {
         // Si parece ISBN, busca por ISBN primero
@@ -250,6 +250,66 @@ function App() {
     }
 
     setSearching(false);
+  };
+
+  const handleCameraCapture = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      const captureModal = document.createElement('div');
+      captureModal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: black; z-index: 10000; display: flex;
+        flex-direction: column; align-items: center; justify-content: center;
+      `;
+      
+      video.style.cssText = `width: 100%; max-height: 80%; object-fit: contain;`;
+      
+      const captureBtn = document.createElement('button');
+      captureBtn.textContent = '📸 Capturar';
+      captureBtn.style.cssText = `
+        margin-top: 20px; padding: 10px 20px; 
+        font-size: 16px; background: #4CAF50; color: white;
+        border: none; border-radius: 5px; cursor: pointer;
+      `;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '❌ Cerrar';
+      closeBtn.style.cssText = `
+        margin-top: 10px; padding: 10px 20px;
+        font-size: 16px; background: #f44336; color: white;
+        border: none; border-radius: 5px; cursor: pointer;
+      `;
+
+      captureBtn.onclick = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
+        setFormData(prev => ({ ...prev, cover_url: imageData }));
+        
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(captureModal);
+      };
+
+      closeBtn.onclick = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(captureModal);
+      };
+
+      captureModal.appendChild(video);
+      captureModal.appendChild(captureBtn);
+      captureModal.appendChild(closeBtn);
+      document.body.appendChild(captureModal);
+    } catch (error) {
+      alert('No se puede acceder a la cámara: ' + error.message);
+    }
   };
 
   const handleLogin = async (e) => {
@@ -1109,20 +1169,26 @@ function App() {
 
               <div className="form-group">
                 <label>Portada (Imagen)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        setFormData({ ...formData, cover_url: event.target?.result });
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setFormData({ ...formData, cover_url: event.target?.result });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <button type="button" onClick={handleCameraCapture} style={{ padding: '8px 12px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    📷 Cámara
+                  </button>
+                </div>
+                {formData.cover_url && <img src={formData.cover_url} alt="Preview" style={{ maxWidth: '120px', marginTop: '10px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />}
               </div>
 
               <div className="form-group">
