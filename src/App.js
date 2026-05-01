@@ -269,31 +269,47 @@ function App() {
       return;
     }
 
-    const { error } = await supabase.from('items').insert([{
-      user_id: user.id,
-      type: itemType,
-      title: formData.title,
-      author: formData.author,
-      year: formData.year ? parseInt(formData.year) : null,
-      category: formData.category,
-      condition: formData.condition,
-      location: formData.location,
-      cover_url: formData.cover_url,
-      notes: formData.notes,
-      format: itemType === 'película' ? formData.format : null,
-      isbn: formData.isbn || null,
-      publisher: formData.publisher || null,
-      pages: formData.pages ? parseInt(formData.pages) : null,
-      genre: formData.genre || null,
-      director: formData.director || null,
-      actors: formData.actors || null,
-      duration: formData.duration || null,
-      rating: formData.rating ? parseFloat(formData.rating) : null,
-      synopsis: formData.synopsis || null
-    }]);
+    try {
+      const itemData = {
+        user_id: user.id,
+        type: itemType,
+        title: formData.title,
+        author: formData.author || null,
+        year: formData.year ? parseInt(formData.year) : null,
+        category: formData.category || null,
+        condition: formData.condition,
+        location: formData.location || null,
+        cover_url: formData.cover_url || null,
+        notes: formData.notes || null,
+        format: itemType === 'película' ? formData.format : null,
+        isbn: formData.isbn || null,
+        publisher: formData.publisher || null,
+        pages: formData.pages ? parseInt(formData.pages) : null,
+        genre: formData.genre || null,
+        director: formData.director || null,
+        duration: formData.duration || null,
+        rating: formData.rating ? parseFloat(formData.rating) : null,
+        synopsis: formData.synopsis || null
+      };
 
-    if (error) alert('Error al guardar: ' + error.message);
-    else {
+      // Agregar actors solo si existe la columna
+      if (formData.actors) {
+        itemData.actors = formData.actors;
+      }
+
+      const { error } = await supabase.from('items').insert([itemData]);
+
+      if (error) {
+        // Si el error es por columna inexistente, intenta sin esa columna
+        if (error.message.includes('actors')) {
+          const { actor, ...itemDataWithoutActors } = itemData;
+          const { error: retryError } = await supabase.from('items').insert([itemDataWithoutActors]);
+          if (retryError) throw retryError;
+        } else {
+          throw error;
+        }
+      }
+
       alert('Item guardado exitosamente');
       setFormData({
         title: '', author: '', year: '', category: '', condition: 'bueno',
@@ -303,6 +319,9 @@ function App() {
       });
       setShowAddForm(false);
       fetchItems();
+    } catch (error) {
+      alert('Error al guardar: ' + error.message);
+      console.error('Save error:', error);
     }
   };
 
@@ -497,17 +516,6 @@ function App() {
                           {item.type === 'libro' ? '📚' : '🎬'}
                         </div>
                       )}
-                      <div className="poster-overlay">
-                        <button
-                          className="delete-poster"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteItem(item.id);
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      </div>
                     </div>
                     <div className="poster-title">{item.title}</div>
                   </div>

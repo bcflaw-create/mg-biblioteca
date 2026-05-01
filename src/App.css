@@ -450,40 +450,6 @@ body {
   font-size: clamp(40px, 20vw, 80px);
 }
 
-.poster-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transition: all 0.3s ease;
-}
-
-.poster:hover .poster-overlay {
-  opacity: 1;
-}
-
-.delete-poster {
-  background: var(--danger);
-  border: none;
-  color: white;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s ease;
-}
-
-.delete-poster:hover {
-  background: #dc2626;
-  transform: scale(1.1);
-}
-
 .poster-title {
   padding: 10px 8px;
   font-size: 12px;
@@ -796,6 +762,8 @@ body {
   .detail-panel {
     width: 100%;
     right: 0;
+    top: 140px;
+    height: calc(100vh - 140px);
   }
 
   .gallery-section {
@@ -813,18 +781,38 @@ body {
   }
 
   .toolbar {
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
-    align-items: flex-start;
+    align-items: center;
+    padding: 12px 15px;
   }
 
   .toolbar-right {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    justify-content: flex-end;
+    gap: 8px;
   }
 
   .size-slider {
-    flex: 1;
+    width: 100px;
+  }
+
+  .size-label {
+    font-size: 11px;
+  }
+
+  .size-value {
+    font-size: 11px;
+    min-width: 35px;
+  }
+
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+  }
+
+  .poster-title {
+    font-size: 11px;
   }
 }
 
