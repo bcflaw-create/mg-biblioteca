@@ -48,6 +48,10 @@ function App() {
   const [categoryFilter, setCategoryFilter] = useState('todos');
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [showDashboard, setShowDashboard] = useState(false);
+  const [watchlist, setWatchlist] = useState([]);
+  const [showWatchlist, setShowWatchlist] = useState(false);
+  const [watchlistTitle, setWatchlistTitle] = useState('');
+  const [watchlistFormat, setWatchlistFormat] = useState('cine');
   const searchInputRef = useRef(null);
 
   const fetchItems = async () => {
@@ -104,6 +108,12 @@ function App() {
   useEffect(() => {
     filterItems();
   }, [filterItems]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchWatchlist();
+    }
+  }, [user]);
 
   const searchGoogleBooks = async (query) => {
     try {
@@ -629,6 +639,101 @@ function App() {
     return Array.from(categories).sort();
   };
 
+  const fetchWatchlist = async () => {
+    if (!user?.id) return;
+    
+    const { data, error } = await supabase
+      .from('watchlist')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching watchlist:', error);
+    } else {
+      setWatchlist(data || []);
+    }
+  };
+
+  const addToWatchlist = async (e) => {
+    e.preventDefault();
+    if (!watchlistTitle.trim()) {
+      alert('Ingresa el título de la película');
+      return;
+    }
+
+    setSearching(true);
+    const movieData = await searchMovieTmdbForWatchlist(watchlistTitle);
+
+    const { error } = await supabase
+      .from('watchlist')
+      .insert([{
+        user_id: user.id,
+        title: watchlistTitle,
+        format: watchlistFormat,
+        poster_path: movieData.poster_path,
+        rating: movieData.rating,
+        synopsis: movieData.synopsis,
+        watched: false
+      }]);
+
+    if (error) {
+      console.error('Error adding to watchlist:', error);
+      alert('Error al agregar a la lista');
+    } else {
+      setWatchlistTitle('');
+      setSearching(false);
+      fetchWatchlist();
+    }
+  };
+
+  const removeFromWatchlist = async (id) => {
+    const { error } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting:', error);
+    } else {
+      fetchWatchlist();
+    }
+  };
+
+  const toggleWatched = async (id, watched) => {
+    const { error } = await supabase
+      .from('watchlist')
+      .update({ watched: !watched })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating:', error);
+    } else {
+      fetchWatchlist();
+    }
+  };
+
+  const searchMovieTmdbForWatchlist = async (title) => {
+    try {
+      const { data } = await axios.get(
+        `https://api.themoviedb.org/3/search/movie?api_key=7f314794a2f3e443f9a8952fec2d31b3&query=${encodeURIComponent(title)}&language=es-MX`
+      );
+      
+      if (data.results && data.results.length > 0) {
+        const movie = data.results[0];
+        return {
+          tmdb_id: movie.id,
+          poster_path: movie.poster_path ? `https://image.tmdb.org/t/p/w300${movie.poster_path}` : null,
+          rating: movie.vote_average || 0,
+          synopsis: movie.overview || ''
+        };
+      }
+    } catch (error) {
+      console.error('TMDb search error:', error);
+    }
+    return { poster_path: null, rating: 0, synopsis: '' };
+  };
+
   if (!user) {
     return (
       <div className="login-container">
@@ -682,6 +787,9 @@ function App() {
         <div className="header-actions">
           <button onClick={() => setShowDashboard(!showDashboard)} className="export-btn" title="Dashboard">
             📊
+          </button>
+          <button onClick={() => setShowWatchlist(!showWatchlist)} className="export-btn" title="Watchlist">
+            🎬
           </button>
           <button onClick={() => setShowAddForm(true)} className="add-btn" title="Agregar nuevo item">
             +
@@ -827,6 +935,90 @@ function App() {
                     }
                   </div>
                 </div>
+              </div>
+            </div>
+          ) : showWatchlist ? (
+            <div className="watchlist-container">
+              <h2>🎬 Mi Watchlist</h2>
+              <p className="watchlist-subtitle">Películas que quiero ver</p>
+
+              <form onSubmit={addToWatchlist} className="watchlist-form">
+                <input
+                  type="text"
+                  placeholder="Título de la película"
+                  value={watchlistTitle}
+                  onChange={(e) => setWatchlistTitle(e.target.value)}
+                  className="watchlist-input"
+                />
+                <select
+                  value={watchlistFormat}
+                  onChange={(e) => setWatchlistFormat(e.target.value)}
+                  className="watchlist-select"
+                >
+                  <option value="cine">🎟️ Cine</option>
+                  <option value="streaming">📺 Streaming</option>
+                  <option value="dvd">💿 DVD</option>
+                  <option value="bluray">🎬 Blu-ray</option>
+                </select>
+                <button type="submit" className="watchlist-add-btn">Agregar</button>
+              </form>
+
+              <div className="watchlist-tabs">
+                <span className="watchlist-tab-label">Por ver: {watchlist.filter(w => !w.watched).length}</span>
+                <span className="watchlist-tab-label">Vistas: {watchlist.filter(w => w.watched).length}</span>
+              </div>
+
+              <div className="watchlist-items">
+                {watchlist.length > 0 ? (
+                  watchlist.map(item => (
+                    <div key={item.id} className={`watchlist-item ${item.watched ? 'watched' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={item.watched}
+                        onChange={() => toggleWatched(item.id, item.watched)}
+                        className="watchlist-checkbox"
+                      />
+                      
+                      <div className="watchlist-poster">
+                        {item.poster_path ? (
+                          <img src={item.poster_path} alt={item.title} />
+                        ) : (
+                          <div className="no-poster-watchlist">🎬</div>
+                        )}
+                      </div>
+
+                      <div className="watchlist-info">
+                        <h4>{item.title}</h4>
+                        <div className="watchlist-meta">
+                          <span className="watchlist-format">{
+                            item.format === 'cine' ? '🎟️ Cine' :
+                            item.format === 'streaming' ? '📺 Streaming' :
+                            item.format === 'dvd' ? '💿 DVD' :
+                            '🎬 Blu-ray'
+                          }</span>
+                          {item.rating > 0 && (
+                            <span className="watchlist-rating">⭐ {item.rating.toFixed(1)}</span>
+                          )}
+                        </div>
+                        {item.synopsis && (
+                          <p className="watchlist-synopsis">{item.synopsis}</p>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => removeFromWatchlist(item.id)}
+                        className="watchlist-delete"
+                        title="Eliminar"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty-state">
+                    Tu watchlist está vacía. ¡Agrega películas que quieras ver!
+                  </div>
+                )}
               </div>
             </div>
           ) : (
