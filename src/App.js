@@ -47,6 +47,7 @@ function App() {
   const [searching, setSearching] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('todos');
   const [selectedItems, setSelectedItems] = useState(new Set());
+  const [showDashboard, setShowDashboard] = useState(false);
   const searchInputRef = useRef(null);
 
   const fetchItems = async () => {
@@ -591,6 +592,38 @@ function App() {
     setSelectedItems(new Set());
   };
 
+  const getDashboardStats = () => {
+    const totalLibros = items.filter(i => i.type === 'libro').length;
+    const totalPeliculas = items.filter(i => i.type === 'película').length;
+    
+    const librosPorUbicacion = {};
+    items.filter(i => i.type === 'libro').forEach(item => {
+      const loc = item.location || 'Sin ubicar';
+      librosPorUbicacion[loc] = (librosPorUbicacion[loc] || 0) + 1;
+    });
+
+    const categorias = {};
+    items.forEach(item => {
+      const cat = item.category || 'Sin categoría';
+      categorias[cat] = (categorias[cat] || 0) + 1;
+    });
+
+    const peliculasPorFormato = {};
+    items.filter(i => i.type === 'película').forEach(item => {
+      const fmt = item.format || 'Desconocido';
+      peliculasPorFormato[fmt] = (peliculasPorFormato[fmt] || 0) + 1;
+    });
+
+    return {
+      totalLibros,
+      totalPeliculas,
+      totalItems: items.length,
+      librosPorUbicacion,
+      categorias,
+      peliculasPorFormato
+    };
+  };
+
   const getCategories = () => {
     const categories = new Set(items.filter(i => i.category).map(i => i.category));
     return Array.from(categories).sort();
@@ -647,10 +680,13 @@ function App() {
         </button>
         <h1 className="logo">MG</h1>
         <div className="header-actions">
+          <button onClick={() => setShowDashboard(!showDashboard)} className="export-btn" title="Dashboard">
+            📊
+          </button>
           <button onClick={() => setShowAddForm(true)} className="add-btn" title="Agregar nuevo item">
             +
           </button>
-          <button onClick={exportToExcel} className="export-btn">📊</button>
+          <button onClick={exportToExcel} className="export-btn">📈</button>
           {selectedItems.size > 0 && (
             <>
               <button onClick={exportSelectedToCSV} className="export-btn" title={`Descargar ${selectedItems.size} etiqueta(s)`}>
@@ -727,6 +763,74 @@ function App() {
         </aside>
 
         <main className="content">
+          {showDashboard ? (
+            <div className="dashboard-container">
+              <h2>📊 Dashboard de Biblioteca</h2>
+              
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-number">{getDashboardStats().totalItems}</div>
+                  <div className="stat-label">Total de Items</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-number">{getDashboardStats().totalLibros}</div>
+                  <div className="stat-label">📚 Libros</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-number">{getDashboardStats().totalPeliculas}</div>
+                  <div className="stat-label">🎬 Películas</div>
+                </div>
+              </div>
+
+              <div className="dashboard-row">
+                <div className="dashboard-section">
+                  <h3>📍 Libros por Ubicación</h3>
+                  <div className="stats-list">
+                    {Object.entries(getDashboardStats().librosPorUbicacion)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([loc, count]) => (
+                        <div key={loc} className="stat-item">
+                          <span className="stat-name">{loc}</span>
+                          <span className="stat-badge">{count}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+
+                <div className="dashboard-section">
+                  <h3>🏷️ Categorías</h3>
+                  <div className="stats-list">
+                    {Object.entries(getDashboardStats().categorias)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([cat, count]) => (
+                        <div key={cat} className="stat-item">
+                          <span className="stat-name">{cat}</span>
+                          <span className="stat-badge">{count}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+
+                <div className="dashboard-section">
+                  <h3>💿 Películas por Formato</h3>
+                  <div className="stats-list">
+                    {Object.entries(getDashboardStats().peliculasPorFormato)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([fmt, count]) => (
+                        <div key={fmt} className="stat-item">
+                          <span className="stat-name">{fmt}</span>
+                          <span className="stat-badge">{count}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="toolbar">
             <div className="toolbar-left">
               <span className="result-count">{filteredItems.length} items</span>
@@ -782,6 +886,8 @@ function App() {
               )}
             </div>
           </div>
+            </>
+          )}
         </main>
 
         {selectedItem && (
