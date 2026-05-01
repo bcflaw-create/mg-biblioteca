@@ -145,6 +145,13 @@ body {
   text-align: center;
 }
 
+.header-logo {
+  height: 40px;
+  width: auto;
+  flex: 1;
+  text-align: center;
+}
+
 .header-actions {
   display: flex;
   gap: 10px;
@@ -821,8 +828,8 @@ body {
     padding: 12px 15px;
   }
 
-  .header .logo {
-    font-size: 24px;
+  .header-logo {
+    height: 35px;
   }
 
   .header-actions {
@@ -872,14 +879,34 @@ body {
   }
 
   .toolbar {
-    padding: 10px 15px;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .toolbar-left {
+    font-size: 11px;
+  }
+
+  .toolbar-right {
+    gap: 4px;
+  }
+
+  .size-label {
+    font-size: 10px;
+    white-space: nowrap;
   }
 
   .size-slider {
-    width: 80px;
+    width: 70px;
+    height: 5px;
   }
 
   .size-value {
+    font-size: 10px;
+    min-width: 35px;
+  }
+
+  .result-count {
     font-size: 11px;
   }
 }

@@ -414,7 +414,7 @@ function App() {
         <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
           ☰
         </button>
-        <h1 className="logo">MG</h1>
+        <img src="/logo.png" alt="MG Biblioteca" className="header-logo" />
         <div className="header-actions">
           <button onClick={() => setShowAddForm(true)} className="add-btn" title="Agregar nuevo item">
             +
@@ -774,6 +774,24 @@ function App() {
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   placeholder="Estante, piso..."
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Portada (Imagen)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setFormData({ ...formData, cover_url: event.target?.result });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
                 />
               </div>
 
