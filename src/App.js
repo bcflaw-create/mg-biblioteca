@@ -103,9 +103,10 @@ function App() {
     filterItems();
   }, [filterItems]);
 
-  const searchGoogleBooks = async (isbn) => {
+  const searchGoogleBooks = async (query) => {
     try {
-      const { data } = await axios.get(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+      const searchQuery = /^[0-9\-]{10,}$/.test(query) ? `isbn:${query}` : query;
+      const { data } = await axios.get(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}&maxResults=1`);
       if (data.items && data.items.length > 0) {
         const book = data.items[0].volumeInfo;
         return {
@@ -116,7 +117,8 @@ function App() {
           publisher: book.publisher || '',
           pages: book.pageCount?.toString() || '',
           category: book.categories?.[0] || '',
-          synopsis: book.description || ''
+          synopsis: book.description || '',
+          isbn: book.industryIdentifiers?.find(id => id.type === 'ISBN_13')?.identifier || ''
         };
       }
     } catch (error) {
@@ -196,21 +198,35 @@ function App() {
   const handleBarcodeSearch = async (e) => {
     if (e.key !== 'Enter') return;
     
-    const barcode = e.target.value.trim();
-    if (!barcode || barcode.length < 5) return;
+    const query = e.target.value.trim();
+    if (!query || query.length < 3) return;
 
     setSearching(true);
     let result = null;
 
     if (itemType === 'libro') {
-      result = await searchOpenLibrary(barcode);
-      if (!result) {
-        result = await searchGoogleBooks(barcode);
+      const isISBN = /^[0-9\-]{10,}$/.test(query); // ISBN tiene solo números y guiones
+      
+      if (isISBN) {
+        // Si parece ISBN, busca por ISBN primero
+        result = await searchOpenLibrary(query);
+        if (!result) {
+          result = await searchGoogleBooks(query);
+        }
+      } else {
+        // Si es texto, busca por título en ambas APIs
+        result = await searchGoogleBooks(query); // Google Books busca por título
+        if (!result) {
+          result = await searchOpenLibrary(query);
+        }
       }
     }
 
     if (result) {
-      setFormData(prev => ({ ...prev, ...result, isbn: barcode }));
+      setFormData(prev => ({ ...prev, ...result }));
+      e.target.value = ''; // Limpia el campo después de buscar
+    } else {
+      alert('No se encontró el libro. Intenta con otro ISBN o título.');
     }
     
     setSearching(false);
@@ -928,10 +944,10 @@ function App() {
               {itemType === 'libro' ? (
                 <>
                   <div className="form-group">
-                    <label>ISBN o Título (Presiona Enter para buscar)</label>
+                    <label>Buscar libro por ISBN o Título (Presiona Enter)</label>
                     <input
                       type="text"
-                      placeholder="Escanea ISBN o escribe título"
+                      placeholder="Escanea ISBN o escribe el título"
                       onKeyPress={handleBarcodeSearch}
                       disabled={searching}
                     />
