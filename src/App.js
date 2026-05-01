@@ -69,6 +69,22 @@ function App() {
     if (user) fetchItems();
   }, []);
 
+  const fetchWatchlist = useCallback(async () => {
+    if (!user?.id) return;
+    
+    const { data, error } = await supabase
+      .from('watchlist')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching watchlist:', error);
+    } else {
+      setWatchlist(data || []);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     checkUser();
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
@@ -638,22 +654,6 @@ function App() {
     const categories = new Set(items.filter(i => i.category).map(i => i.category));
     return Array.from(categories).sort();
   };
-
-  const fetchWatchlist = useCallback(async () => {
-    if (!user?.id) return;
-    
-    const { data, error } = await supabase
-      .from('watchlist')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching watchlist:', error);
-    } else {
-      setWatchlist(data || []);
-    }
-  }, [user?.id]);
 
   const addToWatchlist = async (e) => {
     e.preventDefault();
