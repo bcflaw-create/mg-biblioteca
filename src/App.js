@@ -414,7 +414,7 @@ function App() {
         <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
           ☰
         </button>
-        <img src="/logo.png" alt="MG Biblioteca" className="header-logo" />
+        <h1 className="logo">MG</h1>
         <div className="header-actions">
           <button onClick={() => setShowAddForm(true)} className="add-btn" title="Agregar nuevo item">
             +
