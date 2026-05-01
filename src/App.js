@@ -442,28 +442,6 @@ function App() {
     link.click();
     document.body.removeChild(link);
   };
-    const dataToExport = filteredItems.map(item => ({
-      'Tipo': item.type === 'libro' ? 'Libro' : 'Película',
-      'Título': item.title,
-      'Autor/Director': item.author || item.director || '',
-      'Año': item.year,
-      'Categoría': item.category,
-      'Condición': item.condition,
-      'Ubicación': item.location,
-      'ISBN': item.isbn || '',
-      'Editorial': item.publisher || '',
-      'Páginas': item.pages || '',
-      'Actores': item.actors || '',
-      'Duración': item.duration || '',
-      'Rating': item.rating || '',
-      'Notas': item.notes
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Biblioteca');
-    XLSX.writeFile(wb, `biblioteca_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
 
   const getCategories = () => {
     const categories = new Set(items.filter(i => i.category).map(i => i.category));
